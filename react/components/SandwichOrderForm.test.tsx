@@ -1,48 +1,105 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  RenderOptions,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { createStore } from 'redux';
+import { configureStore } from '@reduxjs/toolkit';
+import { rest } from 'msw';
+import { setupServer } from 'msw/node';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MyForm from './MyForm';
+import { optionSelected } from './redux/optionsSlice';
 
-const mockOptions = ['Option 1', 'Option 2', 'Option 3'];
+const server = setupServer(
+  rest.get('/sandwiches', (req, res, ctx) => {
+    return res(
+      ctx.json([
+        {
+          name: 'sandwich 1',
+        },
+        {
+          name: 'sandwich 2',
+        },
+      ])
+    );
+  })
+);
 
-const reducer = (state = {}, action: any) => {
-  switch (action.type) {
-    case 'OPTION_SELECTED':
-      return { ...state, selectedOption: action.payload.selectedOption };
-    default:
-      return state;
-  }
-};
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
-const renderWithRedux = (
-  ui: JSX.Element,
-  { initialState, store = createStore(reducer, initialState) }: any = {}
+interface RenderWithProvidersOptions extends RenderOptions {
+  store?: any;
+  queryClient?: any;
+}
+
+const renderWithProviders = (
+  ui: React.ReactElement,
+  {
+    store = configureStore({
+      reducer: {
+        options: jest.fn(),
+      },
+    }),
+    queryClient = new QueryClient(),
+    ...renderOptions
+  }: RenderWithProvidersOptions = {}
 ) => {
-  return {
-    ...render(<Provider store={store}>{ui}</Provider>),
-    store,
-  };
+  return render(
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        {ui}
+      </QueryClientProvider>
+    </Provider>,
+    renderOptions
+  );
 };
 
 describe('MyForm', () => {
-  it('renders the form with options', () => {
-    renderWithRedux(<MyForm options={mockOptions} />);
-    const selectElement = screen.getByLabelText(/select an option/i);
-    expect(selectElement).toBeInTheDocument();
-    expect(selectElement.children.length).toEqual(mockOptions.length);
+  it('renders the form correctly', async () => {
+    renderWithProviders(<MyForm />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Select an option:')).toBeInTheDocument()
+    );
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
-  it('dispatches the selected option to Redux on submit', () => {
-    const { store } = renderWithRedux(<MyForm options={mockOptions} />);
-    const selectElement = screen.getByLabelText(/select an option/i);
-    const submitButton = screen.getByRole('button', { name: /submit/i });
+  it('renders an error message if sandwiches cannot be fetched', async () => {
+    server.use(
+      rest.get('/sandwiches', (req, res, ctx) => {
+        return res(ctx.status(500));
+      })
+    );
 
-    userEvent.selectOptions(selectElement, mockOptions[1]);
-    userEvent.click(submitButton);
+    renderWithProviders(<MyForm />);
 
-    const state = store.getState();
-    expect(state.selectedOption).toEqual(mockOptions[1]);
+    await waitFor(() =>
+      expect(screen.getByText('Error fetching sandwiches')).toBeInTheDocument()
+    );
+  });
+
+  it('dispatches the selected option on form submission', async () => {
+    const selectedOption = 'sandwich 1';
+    renderWithProviders(<MyForm />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Select an option:')).toBeInTheDocument()
+    );
+    const select = screen.getByRole('combobox');
+    userEvent.selectOptions(select, selectedOption);
+    userEvent.click(screen.getByRole('button'));
+
+    await waitFor(() =>
+      expect(store.getActions()).toContainEqual(
+        optionSelected({ selectedOption })
+      )
+    );
   });
 });
