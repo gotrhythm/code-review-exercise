@@ -1,20 +1,20 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { useDispatch } from 'react-redux';
-import { Dispatch } from 'redux';
-import { useQuery } from "@tanstack/react-query"
-import styled from "styled-components"
+import React from "react";
+import { useForm } from "react-hook-form";
+import { useDispatch } from "react-redux";
+import { Dispatch } from "redux";
+import { useQuery } from "@tanstack/react-query";
+import styled from "styled-components";
 
-const fetchSandwiches =  async () => {
+const fetchSandwiches = async () => {
   return [
     {
-      name: "sandwich 1"
+      name: "sandwich 1",
     },
     {
-      name: "sandwich 2"
-    }
-  ]
-}
+      name: "sandwich 2",
+    },
+  ];
+};
 
 interface FormValues {
   selectedOption: string;
@@ -23,19 +23,22 @@ interface FormValues {
 const StyledLabel = styled.label`
   color: red;
   font-size: 12px;
-`
+`;
 
 const MyForm = () => {
   const { register, handleSubmit } = useForm<FormValues>();
   const dispatch: Dispatch<any> = useDispatch();
 
-  const {data, isError, isLoading, isSuccess} = useQuery({
+  const { data, isError, isLoading, isSuccess } = useQuery({
     queryFn: () => fetchSandwiches(),
-    queryKey: ["sandwiches"]
-  })
+    queryKey: ["sandwiches"],
+  });
 
   const onSubmit = (data: FormValues) => {
-    dispatch({ type: 'OPTION_SELECTED', payload: { selectedOption: data.selectedOption } });
+    dispatch({
+      type: "OPTION_SELECTED",
+      payload: { selectedOption: data.selectedOption },
+    });
   };
 
   if (isLoading) {
@@ -43,25 +46,20 @@ const MyForm = () => {
   }
 
   if (isError) {
-    return (
-      <div>
-        Error fetching sandwiches
-      </div>
-    )
+    return <div>Error fetching sandwiches</div>;
   }
-
 
   const sandwichOptions = data.map((sandwich) => {
     return {
       label: sandwich.name,
-      value: sandwich.name
-    }
-  })
+      value: sandwich.name,
+    };
+  });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <StyledLabel htmlFor="selectedOption">Select an option:</StyledLabel>
-      <select id="selectedOption" {...register('selectedOption')}>
+      <select id="selectedOption" {...register("selectedOption")}>
         {sandwichOptions.map((option) => (
           <option value={option.value}>{option.label}</option>
         ))}
