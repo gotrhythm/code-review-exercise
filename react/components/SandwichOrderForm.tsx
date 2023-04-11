@@ -1,106 +1,41 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useMutation } from 'react-query';
-import { useDispatch, useSelector } from 'react-redux';
-import { setSandwichType, addExtra, removeExtra } from '../store/sandwichSlice';
-import { RootState } from '../store/store';
+import { useDispatch } from 'react-redux';
+import { Dispatch } from 'redux';
+import styled from "styled-components"
 
-interface FormValues {
-  customerName: string;
-  sdwType: string;
-  cheese: boolean;
-  tomato: boolean;
+interface Props {
+  options: string[];
 }
 
-const SandwichOrderForm: React.FC = () => {
-  const dispatch = useDispatch();
-  const { sdwType, extras } = useSelector((state: RootState) => state.sandwich);
-  const { register, handleSubmit, setValue } = useForm<FormValues>();
+const StyledLabel = styled.label`
+  color: red;
+  font-size: 12px;
+`
 
-  const mutation = useMutation(async (sandwichData: any) => {
-    const response = await fetch('https://api.test.example.com/sandwiches', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sandwichData),
-    });
+interface FormValues {
+  selectedOption: string;
+}
 
-    if (!response.ok) {
-      throw new Error('Failed to submit the sandwich order');
-    }
-  });
+const MyForm: React.FC<Props> = ({ options }) => {
+  const { register, handleSubmit } = useForm<FormValues>();
+  const dispatch: Dispatch<any> = useDispatch();
 
   const onSubmit = (data: FormValues) => {
-    const selectedExtras = [
-      data.cheese ? 'cheese' : null,
-      data.tomato ? 'tomato' : null,
-    ].filter((extra) => extra !== null);
-
-    mutation.mutate({
-      customerName: data.customerName,
-      sdwType,
-      extras: selectedExtras,
-    });
-  };
-
-  const handleExtraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const extra = e.target.value;
-    if (e.target.checked) {
-      dispatch(addExtra(extra));
-    } else {
-      dispatch(removeExtra(extra));
-    }
-    setValue(extra, e.target.checked);
+    dispatch({ type: 'OPTION_SELECTED', payload: { selectedOption: data.selectedOption } });
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <div>
-        <label htmlFor="customerName">Customer Name: </label>
-        <input id="customerName" {...register('customerName')} />
-      </div>
-      <div>
-        <label htmlFor="sdwType">Sandwich Type: </label>
-        <select
-          id="sdwType"
-          value={sdwType}
-          onChange={(e) => dispatch(setSandwichType(e.target.value))}
-        >
-          <option value="">--Choose a sandwich--</option>
-          <option value="turkey">Turkey</option>
-          <option value="ham">Ham</option>
-          <option value="veggie">Veggie</option>
-        </select>
-      </div>
-      <div>
-        <label>Extras:</label>
-        <div>
-          <input
-            type="checkbox"
-            id="cheese"
-            value="cheese"
-            checked={extras.includes('cheese')}
-            onChange={handleExtraChange}
-            {...register('cheese')}
-          />
-          <label htmlFor="cheese">Cheese</label>
-        </div>
-        <div>
-          <input
-            type="checkbox"
-            id="tomato"
-            value="tomato"
-            checked={extras.includes('tomato')}
-            onChange={handleExtraChange}
-            {...register('tomato')}
-          />
-          <label htmlFor="tomato">Tomato</label>
-        </div>
-      </div>
-      <button type="submit">Submit Order</button>
+      <StyledLabel >Select an option:</StyledLabel>
+      <select id="selectedOption" {...register('selectedOption')}>
+        {options.map((option) => (
+          <option value={option}>{option}</option>
+        ))}
+      </select>
+      <button type="submit">Submit</button>
     </form>
   );
 };
 
-export default SandwichOrderForm;
+export default MyForm;
